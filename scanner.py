@@ -1,5 +1,6 @@
 import socket
 import time
+import threading
 from scapy.layers.inet import TCP, IP
 from scapy.sendrecv import sr1
 from protocol_definition import define_protocol
@@ -29,10 +30,7 @@ class Scanner:
                     return 'Incorrect input'
         return 'OK'
 
-    def print_info(self, connection, port, done, time_in_ms):
-        if not done:
-            return
-
+    def print_info(self, connection, port, time_in_ms):
         _time = ''
         if self.args.verbose and connection == 'TCP':
             _time = f"[{round(time_in_ms, 2)} ms]"
@@ -48,18 +46,26 @@ class Scanner:
                   '-v -g 1.1.1.1 tcp/80 udp/4320-4450')
             return
 
+        threads = []
+
         for port in self.ports['tcp']:
-            self.print_info('TCP', port, *self.scan_tcp(self.args.ip, port))
+            t = threading.Thread(target=self.scan_tcp, args=(self.args.ip, port))
+            threads.append(t)
+            t.start()
 
         for port in self.ports['udp']:
-            self.print_info('UDP', port, *self.scan_udp(self.args.ip, port))
+            t = threading.Thread(target=self.scan_udp, args=(self.args.ip, port))
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
 
     def scan_tcp(self, ip, port):
         packet = IP(dst=ip) / TCP(dport=port, flags='S')
         response = sr1(packet, timeout=self.args.timeout, verbose=False)
         if response and response.haslayer(TCP) and response.getlayer(TCP).flags == 0x12:
-            return True, response.time - packet.time
-        return False, None
+            self.print_info('TCP', port, response.time - packet.time)
 
     def scan_udp(self, ip, port):
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -71,6 +77,6 @@ class Scanner:
                               (ip, port))
             data, addr = udp_socket.recvfrom(1024)
             udp_socket.close()
-            return True, (time.time() - start_time) * 1000
+            self.print_info('UDP', port, (time.time() - start_time) * 1000)
         except Exception:
-            return False, None
+            pass
