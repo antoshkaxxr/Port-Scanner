@@ -10,7 +10,7 @@ class ArgumentsReader:
         parser = argparse.ArgumentParser(description='Port-Scanner')
         parser.add_argument('--timeout', type=float, default=2.0,
                             help='how long to wait for a response')
-        parser.add_argument('-j', '--num-threads', type=int, default=1,
+        parser.add_argument('-j', '--num-threads', type=int, default=10,
                             help='number of threads')
         parser.add_argument('-v', '--verbose', action='store_true',
                             help='verbose mode')
